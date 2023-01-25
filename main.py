@@ -124,7 +124,7 @@ def main(video, threads=30, only_errors=False):
 	with Pool(threads) as pool:
 		pool.starmap(make_anime, work_arr)
 
-	shutil.rmtree(temp_folder)
+	shutil.rmtree("temp")
 	verify_files(output_folder)
 
 	audio = extract_audio(video)
@@ -136,7 +136,7 @@ def main(video, threads=30, only_errors=False):
 	p.wait()
 
 	os.remove(audio)
-	shutil.rmtree(output_folder)
+	shutil.rmtree("output")
 
 
 if __name__ == "__main__":
