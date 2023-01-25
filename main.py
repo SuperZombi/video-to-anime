@@ -35,7 +35,7 @@ def get_anime_image(base64_image):
 	if json_data['code'] == 0:
 		return json.loads(json_data['extra'])["img_urls"][0]
 	if json_data['code'] == 1001:
-		raise NoFaceException("No Face Exception")
+		raise NoFaceException("No Face")
 	else:
 		raise Exception(json_data['msg'])
 
@@ -119,7 +119,7 @@ def main(video, threads=30, only_errors=False):
 						add_arg(output_folder, len(arr)),
 						add_arg(only_errors, len(arr))
 					))
-	if not only_errors:
+	if only_errors:
 		print("Making anime...")
 	with Pool(threads) as pool:
 		pool.starmap(make_anime, work_arr)
