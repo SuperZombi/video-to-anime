@@ -35,7 +35,7 @@ def get_anime_image(base64_image):
 	if json_data['code'] == 0:
 		return json.loads(json_data['extra'])["img_urls"][0]
 	if json_data['code'] == 1001:
-		raise NoFaceException()
+		raise NoFaceException("No Face Exception")
 	else:
 		raise Exception(json_data['msg'])
 
@@ -48,12 +48,14 @@ def crop_anime(url):
 		crop_img = img.crop((20, 542, 778, 1046))
 	return crop_img
 
-def make_anime(filename, output_folder):
+def make_anime(filename, output_folder, only_errors=False):
 	encoded = image_to_base64(filename)
-	print(f"Make anime from: {filename}")
+	if not only_errors:
+		print(f"Make anime from: {filename}")
 	try:
 		image_url = get_anime_image(encoded)
 	except:
+		# Retry one more time
 		try:
 			image_url = get_anime_image(encoded)
 		except Exception as e:
@@ -63,7 +65,7 @@ def make_anime(filename, output_folder):
 	result.save(os.path.join(output_folder, os.path.basename(filename)))
 
 def video_to_frames(video, folder):
-	p = subprocess.Popen(["ffmpeg", "-i", video, "%06d.png"], cwd=folder)
+	p = subprocess.Popen(["ffmpeg", "-hide_banner", "-i", video, "%06d.png"], cwd=folder)
 	p.wait()
 	return [os.path.join(folder, f) for f in os.listdir(folder)]
 
@@ -87,11 +89,13 @@ def verify_files(folder):
 def extract_audio(video):
 	audio_file = os.path.splitext(video)[0] + ".mp3"
 	if os.path.exists(audio_file): os.remove(audio_file)
-	p = subprocess.Popen(["ffmpeg", "-i", video, audio_file])
+	p = subprocess.Popen(["ffmpeg", "-i", video, audio_file], stderr=subprocess.PIPE)
 	p.wait()
 	return audio_file
 
-def main(video):
+
+
+def main(video, threads=30, only_errors=False):
 	filename = os.path.basename(video)
 	temp_folder = os.path.join(
 		"temp", os.path.splitext(filename)[0]
@@ -109,8 +113,15 @@ def main(video):
 	os.mkdir(output_folder)
 
 	arr = video_to_frames(video, temp_folder)
-	work_arr = list(zip(arr, [output_folder for a in range(len(arr))]))
-	with Pool(30) as pool:
+	def add_arg(arg, amount):
+		return [arg for a in range(amount)]
+	work_arr = list(zip(arr,
+						add_arg(output_folder, len(arr)),
+						add_arg(only_errors, len(arr))
+					))
+	if not only_errors:
+		print("Making anime...")
+	with Pool(threads) as pool:
 		pool.starmap(make_anime, work_arr)
 
 	shutil.rmtree(temp_folder)
@@ -121,11 +132,12 @@ def main(video):
 	t = os.path.splitext(video)
 	output_file = t[0] + "_output" + t[1]
 	if os.path.exists(output_file): os.remove(output_file)
-	p = subprocess.Popen(["ffmpeg", "-framerate", str(get_video_fps(video)), "-i", "%06d.png", "-i", audio, output_file], cwd=output_folder)
+	p = subprocess.Popen(["ffmpeg", "-hide_banner", "-framerate", str(get_video_fps(video)), "-i", "%06d.png", "-i", audio, output_file], cwd=output_folder)
 	p.wait()
 
 	os.remove(audio)
 	shutil.rmtree(output_folder)
+
 
 if __name__ == "__main__":
 	vid = os.path.join(os.getcwd(), "video.mp4") # Full path to video
